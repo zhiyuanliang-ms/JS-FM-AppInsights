@@ -1,0 +1,8 @@
+{
+  "dependencies": {
+    "applicationinsights": "^3.5.0",
+    "dotenv": "^16.3.1",
+    "express": "^4.21.2",
+    "@microsoft/feature-management": "^2.0.0"
+  }
+}
