@@ -56,7 +56,8 @@ function App() {
     }, []);
 
     const handleButtonClick = () => {
-        trackEvent(appInsights, TARGETING_ID, {name: "TestEvent-Browser"}, {"Tag": "Some Value"});
+        // trackEvent(appInsights, TARGETING_ID, {name: "TestEvent-Browser"}, {"Tag": "Some Value"});
+        appInsights.trackEvent({name: "TestEvent-Browser"}, {"Tag": "Some Value"});
         console.log("Button clicked");
     };
 

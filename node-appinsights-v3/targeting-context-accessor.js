@@ -63,7 +63,7 @@ const server = express();
 const PORT = 3000;
 
 server.get("/", async (req, res) => {
-    TARGETING_ID = "LZY";
+    TARGETING_ID = req.query.id ?? "Default";
     const enabled = await featureManager.isEnabled("Beta", { userId: TARGETING_ID });
     appInsights.defaultClient.trackEvent({ name: "TestEvent", properties: {"Tag": "Some Value"} });
     res.send(`Beta is ${enabled ? "enabled" : "disabled"}`);
