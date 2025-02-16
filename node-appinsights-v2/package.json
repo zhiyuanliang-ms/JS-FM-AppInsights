@@ -6,7 +6,7 @@
         "dotenv": "^16.3.1",
         "express": "^4.21.2",
         "applicationinsights": "^2.9.6",
-        "@microsoft/feature-management": "^2.0.0",
+        "@microsoft/feature-management": "file:../private-build.tgz",
         "@microsoft/feature-management-applicationinsights-node": "^2.0.0"
     }
 }

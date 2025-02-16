@@ -17,24 +17,45 @@ const config = {
         ]
     }
 };
+
+const { AsyncLocalStorage } = require("async_hooks");
+const asyncLocalStorage = new AsyncLocalStorage();
+
+const targetingContextAccessor = () => {
+    const req = asyncLocalStorage.getStore();
+    const TARGETING_ID = req?.query.id ?? "Default";
+    return { userId: TARGETING_ID };
+};
+
 const featureProvider = new ConfigurationObjectFeatureFlagProvider(config);
 const publishTelemetry = (result) => { 
     const eventProperties = createFeatureEvaluationEventProperties(result);
     appInsights.defaultClient.trackEvent({ name: "FeatureEvaluation", properties: eventProperties });
 };
-const featureManager = new FeatureManager(featureProvider, { onFeatureEvaluated: publishTelemetry });
-let TARGETING_ID = "TEST-TARGETING-ID";
-const targetingContextAccessor = () => ({userId: TARGETING_ID});
+const featureManager = new FeatureManager(
+    featureProvider, 
+    { 
+        onFeatureEvaluated: publishTelemetry,
+        targetingContextAccessor: targetingContextAccessor
+    }
+);
 
 const targetingSpanProcessor = {
     forceFlush() {
       return Promise.resolve();
     },
     onStart(span, _context) {
-        // console.log(_context);
-        span.setAttribute("TargetingId", targetingContextAccessor().userId);
+        const req = asyncLocalStorage.getStore();
+        console.log("onStart: ", req?.query);
+        // span.setAttribute("TargetingId", targetingContextAccessor().userId);
     },
-    onEnd(span) {},
+    // https://www.npmjs.com/package/@azure/monitor-opentelemetry
+    onEnd(span) {
+        const req = asyncLocalStorage.getStore();
+        console.log("onEnd: ", req?.query);
+        // span.setAttribute("TargetingId", targetingContextAccessor().userId); // cannot execute on ended span
+        span.attributes["TargetingId"] = targetingContextAccessor().userId;
+    },
     shutdown() {
       return Promise.resolve();
     }
@@ -42,6 +63,8 @@ const targetingSpanProcessor = {
 
 const targetingLogProcessor = {
     onEmit(record) {
+        const req = asyncLocalStorage.getStore();
+        console.log("onEmit: ", req?.query);
         record.setAttribute("TargetingId", targetingContextAccessor().userId);
     },
     shutdown() {
@@ -52,6 +75,7 @@ const targetingLogProcessor = {
     }
 }
 
+// https://learn.microsoft.com/en-us/azure/azure-monitor/app/opentelemetry-nodejs-migrate?tabs=cleaninstall#telemetry-processors
 const api = require("@opentelemetry/api");
 const api_logs = require("@opentelemetry/api-logs");
 api.trace.getTracerProvider().getDelegate().addSpanProcessor(targetingSpanProcessor);
@@ -62,9 +86,13 @@ const express = require("express");
 const server = express();
 const PORT = 3000;
 
+// middleware patern fail, in onStart, req is undefined
+server.use((req, res, next) => {
+    asyncLocalStorage.run(req, next);
+});
+
 server.get("/", async (req, res) => {
-    TARGETING_ID = req.query.id ?? "Default";
-    const enabled = await featureManager.isEnabled("Beta", { userId: TARGETING_ID });
+    const enabled = await featureManager.isEnabled("Beta");
     appInsights.defaultClient.trackEvent({ name: "TestEvent", properties: {"Tag": "Some Value"} });
     res.send(`Beta is ${enabled ? "enabled" : "disabled"}`);
 });
